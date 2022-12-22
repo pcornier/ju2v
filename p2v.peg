@@ -1,0 +1,92 @@
+
+{{
+let ports = function(inp,out) {
+  return `module NAME(\n${inp},\n${out}\n);\n`;
+}
+let rewrite = function(name, op) {
+  op = op == "+" ? "|" : op == ":+:" ? "^" : op;
+  return `${name.low==1?'~':''}pin${name.port} ${op} `;
+}
+}}
+
+dump
+    = i:inputs + o:outputs + e:equations
+    { return ports(i, o) + e + "\nendmodule\n" }
+
+equations "equations"
+    = nl* "Equations:" nl+ assignments:(assignment/seq)+ { return assignments.join('\n') }
+
+assignment
+    = sig:name space* asgn space* logic:logic* last:lastLogic+ nl* oe:oe*
+    { return `assign pin${sig.port} = ${oe!=""?oe:""}${sig.low?"~(":""}${logic.join('')}${last}${oe!=""?":0":""}${sig.low?");":";"}` }
+
+seq
+    = sig:name space* rasgn space* logic:logic* last:lastLogic+ nl* oe:oe*
+    { return `always @(posedge FIX_CLOCK) pin${sig.port} <= ${sig.low?'~(':''}${logic.join('')}${last}${sig.low?')':''};` }
+
+oe
+    = (in/out/rf) port:$digit+ ".oe" space* asgn space* logic:logic* last:lastLogic+ nl*
+    { return last != '' ? '('+logic.join('')+last+')?' : '' }
+
+lastLogic
+    = space* name:(name/vcc) space*
+    { return name != "vcc" ? rewrite(name, '') : "" }
+
+logic
+    = space* name:name space* op:op nl*
+    { return rewrite(name, op) }
+
+name "name"
+    = low:low* (in/out/rf) port:$digit+ { return {low:low=="/"?1:0, port:port} }
+
+inputs "inputs"
+    =  nl* "Inputs:" nl* inputs:inputPort+ nl*
+        { return inputs.join(',\n') }
+
+outputs "outputs"
+    =  nl* "Outputs:" nl* outputs:outputPort+ nl*
+        { return outputs.join(',\n') }
+
+inputPort
+    = space* pn:$digit+ space* comma* space*
+    { return `input pin${parseInt(pn)}` }
+
+outputPort
+    = space* pn:$digit+ space* reg:infos nl
+    { return `output ${reg?"reg":""} pin${parseInt(pn)}` }
+
+combReg
+    = space* type:("Combinatorial" / "Registered") comma* { return type == "Registered" }
+
+feedback
+    = space* (
+    "Output feedback output" /
+    "Output feedback combinatorial" /
+    "Output feedback registered" /
+    "No output feedback") comma *
+
+active
+    = space* ("Active low" / "Active high")
+
+infos = "(" type:combReg feedback active ")" { return type }
+
+op = and / or / xor
+
+vcc = "vcc"/"OE"
+and = "&"
+or = "+"
+xor = ":+:"
+low = "/"
+in = "i"
+out = "o"
+rfo = "rfo"
+of = "of"
+rf = "rf"
+asgn = "="
+rasgn = ":="
+
+comma = ","
+digit = [0-9]
+
+space = " "
+nl = "\n" / "\r\n" / "\r"
