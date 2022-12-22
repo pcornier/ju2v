@@ -11,3 +11,5 @@ CTRL+C to stop
 
 ### references
 - https://github.com/mamedev/mame/blob/1f2fb58b875e06fa6eff6628a7da815bbd9cedbe/src/tools/jedutil.cpp
+- https://peggyjs.org
+
